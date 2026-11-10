@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "board": {
+      "$classId": {
+        ".read": true,
+        ".write": false,
+        "groups": {
+          "$gid": {
+            ".write": "newData.exists()",
+            ".validate": "newData.hasChildren(['name','members']) && newData.child('name').isString() && newData.child('name').val().length <= 40"
+          }
+        },
+        "comments": {
+          "$cid": {
+            ".write": "!data.exists() || !newData.exists()",
+            ".validate": "!newData.exists() || (newData.hasChildren(['groupId','text','authorName','deviceId','createdAt']) && newData.child('text').isString() && newData.child('text').val().length <= 2000)"
+          }
+        }
+      }
+    }
+  }
+}

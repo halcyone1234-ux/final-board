@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>期末專題看板</title>
+  <meta name="description" content="量化研究法（上）期末資料分析專題：各組題目、資料、研究方法與進度一覽，並可在每組下方留言建議。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">量化研究法（上）・1151 學期・期末資料分析專題</div>
+    <h1>期末專題看板</h1>
+    <p class="sub">每組的題目、資料、研究方法和進度都在這一頁。各組請自己更新組卡，依照七個步驟逐步填寫；每組下面都能留言給建議，老師的留言會以橘色標示。</p>
+  </header>
+
+  <section class="rules" aria-label="期末報告規範">
+    <div><dt>分組</dt><dd>2～3 人一組</dd></div>
+    <div><dt>資料</dt><dd>自行蒐集或尋找，<b>不少於 1,000 筆</b><small>Kaggle、政府資料開放平台（data.gov.tw）、中研院 SRDA 等</small></dd></div>
+    <div><dt>題目</dt><dd>自行根據資料內容，提出研究議題</dd></div>
+    <div><dt>報告時間</dt><dd><b class="num">30</b> 分鐘報告＋<b class="num">10</b> 分鐘 QA</dd></div>
+    <div class="wide"><dt>簡報必須包含課程介紹的「所有」研究方法步驟</dt><dd>研究問題與假設 → 文獻 → 研究設計 → 測量（信度・效度）→ 抽樣與資料蒐集 → 敘述統計與視覺化 → 分析與推論<small>起手式：把第 1 週「地圖練習表」的六格填好：故事、Y、X、Z／M／W、資料結構、四張臉。</small></dd></div>
+  </section>
+
+  <div class="who" id="who">正在連線…</div>
+  <div class="notice" id="notice" hidden></div>
+
+  <div class="stats" id="stats">
+    <div class="stat"><b>–</b><span>組數</span></div>
+    <div class="stat"><b>–</b><span>已定研究題目</span></div>
+    <div class="stat"><b>–</b><span>資料達 1,000 筆</span></div>
+    <div class="stat"><b>–</b><span>七步驟全部填完</span></div>
+    <div class="stat"><b>–</b><span>留言總數</span></div>
+  </div>
+
+  <section style="display:grid;gap:10px">
+    <div class="section-head"><h2>總覽</h2><p>點一列跳到該組</p></div>
+    <div class="ledger-box">
+      <table class="ledger">
+        <thead><tr><th>組別</th><th>成員</th><th>研究題目</th><th>資料（筆數）</th><th>研究方法</th><th>七步驟</th><th>進度</th><th>留言</th></tr></thead>
+        <tbody id="ledger"><tr><td colspan="8" class="empty">各組資料載入中…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section style="display:grid;gap:12px">
+    <div class="section-head"><h2>各組專題</h2><p>六格表沿用第 1 週的「地圖練習表」</p></div>
+    <div class="cards" id="cards"><div class="loading">各組資料載入中…</div></div>
+  </section>
+
+  <footer class="foot">
+    <span>國立中興大學 生物產業管理研究所・授課教師 王思永</span>
+    <span><span id="mode" class="mode-pill">連線中</span> <button class="linkbtn" type="button" id="teacher-btn">老師模式</button></span>
+  </footer>
+</div>
+<div id="overlay" class="overlay" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="firebase-config.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
