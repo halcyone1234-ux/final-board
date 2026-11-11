@@ -63,6 +63,13 @@
   const hasTopic = (g) => filled(g.topic);
   const currentGroup = (gid) => state.groups.find((x) => x.id === gid);
   const myName = () => (state.isTeacher ? TEACHER : state.me);
+  const PX = window.PIXEL_ICONS;
+  /* 組徽方塊；沒選的組顯示組名第一個字 */
+  function badge(g, cls) {
+    const ic = g.icon && PX.byId(g.icon);
+    return h('span', { class: 'badge ' + (cls || '') + (ic ? '' : ' none') }, ic ? PX.svg(ic.id, ic.name) : h('span', { 'aria-hidden': 'true' }, Array.from(g.name || '?')[0]));
+  }
+  const takenBy = (iconId, exceptGid) => state.groups.find((x) => x.icon === iconId && x.id !== exceptGid);
 
   function notice(text, kind) {
     const n = document.getElementById('notice');
@@ -80,7 +87,7 @@
     box.replaceChildren();
     if (state.isTeacher) {
       box.append(h('span', null, '老師模式：以 ', h('strong', null, TEACHER), ' 留言，可以改組名與成員、刪除任何留言。'), h('span', { class: 'spacer' }),
-        h('button', { class: 'btn', type: 'button', onclick: showQR }, '顯示 QR'),
+        h('a', { class: 'btn', href: '#board' }, '投影模式'), h('button', { class: 'btn', type: 'button', onclick: showQR }, '顯示 QR'),
         h('button', { class: 'btn', type: 'button', onclick: () => setTeacher(false) }, '離開老師模式'));
       return;
     }
@@ -148,7 +155,7 @@
     for (const g of state.groups) {
       const cnt = commentsOf(g.id).length;
       tb.append(h('tr', { onclick: () => jumpTo(g.id), tabindex: 0, onkeydown: (e) => { if (e.key === 'Enter') jumpTo(g.id); } },
-        h('td', { class: 'gname' }, g.name),
+        h('td', { class: 'gname' }, h('span', { class: 'gcell' }, badge(g, 'sm'), g.name)),
         h('td', null, (g.members || []).join('、')),
         h('td', { class: hasTopic(g) ? '' : 'empty' }, hasTopic(g) ? g.topic : '尚未填寫'),
         h('td', null, g.dataName ? h('div', { style: 'display:grid;gap:3px' }, g.dataName, nBadge(g.dataN)) : h('span', { class: 'empty' }, '尚未填寫')),
@@ -229,6 +236,12 @@
         stage: stageVal === '' ? null : Number(stageVal),
         updatedAt: Date.now(), updatedBy: myName(),
       };
+      const iconPick = form.querySelector(`input[name="${CSS.escape(id('icon'))}"]:checked`);
+      if (iconPick) {
+        const other = takenBy(iconPick.value, g.id);
+        if (other) { msg.textContent = `「${PX.byId(iconPick.value).name}」剛被${other.name}選走了，請換一隻。`; return; }
+        patch.icon = iconPick.value;
+      }
       if (state.isTeacher) {
         const name = v('gname'); const members = v('gmembers').split(/[、,，\s]+/).filter(Boolean);
         if (!name || !members.length) { msg.textContent = '組名和成員不能空白。'; return; }
@@ -244,6 +257,15 @@
     } },
       state.isTeacher ? h('fieldset', null, h('legend', null, '老師專用：組名與成員'), h('div', { class: 'row' },
         txt('gname', '組名', g.name), txt('gmembers', '成員（用頓號分隔）', (g.members || []).join('、')))) : null,
+      h('fieldset', null, h('legend', null, '組徽：挑一隻小動物（每組一隻，先選先贏）'),
+        h('div', { class: 'icon-pick' }, PX.list.map((ic) => {
+          const other = takenBy(ic.id, g.id);
+          return h('label', { class: 'icon-opt' + (other ? ' taken' : ''), title: other ? `已被${other.name}選走` : ic.name },
+            h('input', { type: 'radio', name: id('icon'), value: ic.id, checked: g.icon === ic.id, disabled: !!other }),
+            h('span', { class: 'badge md' }, PX.svg(ic.id)),
+            h('span', { class: 'icon-name' }, ic.name),
+            other ? h('span', { class: 'icon-taken' }, other.name) : null);
+        }))),
       txt('topic', '研究題目', g.topic, '例：參加產銷班能不能提高農民收入？'),
       h('fieldset', null, h('legend', null, '起手式：六格表（第 1 週地圖練習表）'), h('div', { class: 'form' },
         txt('story', '故事（一句話）', g.story, '我想講的故事'),
@@ -273,7 +295,7 @@
   /* ---------- cards ---------- */
   function ensureCard(g) {
     if (cardEls.has(g.id)) return cardEls.get(g.id);
-    const title = h('h3'), members = h('div', { class: 'members' }), updated = h('div', { class: 'updated' }), stage = h('div');
+    const title = h('h3'), members = h('div', { class: 'members' }), updated = h('div', { class: 'updated' }), stage = h('div'), icon = h('span');
     const editBtn = h('button', { class: 'btn', type: 'button', onclick: () => { state.editing.add(g.id); updateCard(currentGroup(g.id)); } }, '編輯組卡');
     const body = h('div', { class: 'card-body' });
     const list = h('div', { class: 'clist' });
@@ -284,10 +306,10 @@
       ta, h('div', { class: 'bar' }, sendMsg, send));
     const count = h('span');
     const root = h('article', { class: 'card', id: 'g-' + g.id },
-      h('div', { class: 'card-head' }, h('div', null, title, members), h('div', { class: 'meta' }, stage, updated, editBtn)),
+      h('div', { class: 'card-head' }, h('div', { class: 'gcell' }, icon, h('div', null, title, members)), h('div', { class: 'meta' }, stage, updated, editBtn)),
       body,
       h('div', { class: 'thread' }, h('h4', null, '建議與留言 ', count), list, composer));
-    const refs = { root, title, members, updated, stage, editBtn, body, list, composer, ta, send, sendMsg, count };
+    const refs = { root, title, members, updated, stage, editBtn, body, list, composer, ta, send, sendMsg, count, icon };
     cardEls.set(g.id, refs);
     return refs;
   }
@@ -296,6 +318,7 @@
     if (!g) return;
     const r = ensureCard(g);
     r.title.textContent = g.name;
+    r.icon.replaceChildren(badge(g, 'lg'));
     r.members.textContent = (g.members || []).join('、');
     r.updated.textContent = updatedText(g);
     r.stage.replaceChildren(stageBar(g.stage));
@@ -349,12 +372,65 @@
     renderAllThreads();
   }
 
+  /* ---------- 投影模式（#board）：一個畫面看全部組別 ---------- */
+  const boardEl = document.getElementById('board');
+  const isBoard = () => location.hash === '#board';
+  const siteUrl = () => location.origin + location.pathname + (classId !== CFG.defaultClassId ? '?c=' + classId : '');
+  let boardQR = null;
+  function boardTile(g) {
+    const cs = commentsOf(g.id);
+    const last = cs[cs.length - 1];
+    const done = stepsDone(g);
+    return h('article', { class: 'tile' },
+      h('div', { class: 'tile-head' }, badge(g, 'xl'),
+        h('div', { class: 'tile-id' }, h('h3', null, g.name), h('div', { class: 'members' }, (g.members || []).join('、'))),
+        h('div', { class: 'tile-c', title: '留言數' }, h('b', { class: 'num' }, String(cs.length)), h('span', null, '則留言'))),
+      h('p', { class: 'tile-topic' + (hasTopic(g) ? '' : ' none') }, hasTopic(g) ? g.topic : '研究題目尚未填寫'),
+      h('div', { class: 'tile-data' }, g.dataName ? [h('span', { class: 'tile-dname' }, g.dataName), nBadge(g.dataN)] : h('span', { class: 'none' }, '資料尚未填寫')),
+      (g.methods || []).length ? h('div', { class: 'chips' }, g.methods.map((m) => h('span', { class: 'chip' }, m))) : h('div', { class: 'chips none' }, '方法尚未填寫'),
+      h('div', { class: 'tile-steps' },
+        h('div', { class: 'tile-row' }, h('span', null, '七步驟'), h('b', { class: 'num' }, done + ' / 7')),
+        h('ol', { class: 'step7', 'aria-label': `七步驟已填 ${done} 項` }, STEPS.map((s, i) => h('li', { class: s.done(g) ? 'on' : '', title: s.label }, String(i + 1))))),
+      h('div', { class: 'tile-stage' }, stageBar(g.stage)),
+      h('p', { class: 'tile-last' }, last ? [h('b', { class: last.isTeacher ? 'tch' : '' }, (last.authorName || '匿名') + '：'), last.text] : h('span', { class: 'none' }, '還沒有留言')));
+  }
+  function renderBoard() {
+    if (!isBoard()) return;
+    const g = state.groups;
+    const n = g.length + 1;
+    const cols = n <= 3 ? n : n <= 8 ? 4 : n <= 10 ? 5 : 6;
+    const grid = h('div', { class: 'board-grid', style: `grid-template-columns:repeat(${cols},minmax(0,1fr));grid-template-rows:repeat(${Math.ceil(n / cols)},minmax(0,1fr))` },
+      g.map(boardTile),
+      h('article', { class: 'tile tile-qr' }, boardQR = h('div', { class: 'qr' }),
+        h('p', null, '掃 QR 打開看板', h('br'), '更新組卡、給別組留言'), h('div', { class: 'url' }, siteUrl())));
+    const stat = (v, l) => h('div', { class: 'bstat' }, h('b', { class: 'num' }, v), h('span', null, l));
+    boardEl.replaceChildren(
+      h('header', { class: 'board-head' },
+        h('div', null, h('div', { class: 'eyebrow' }, '量化研究法（上）・期末資料分析專題'), h('h1', null, '期末專題看板')),
+        h('div', { class: 'bstats' },
+          stat(g.filter(hasTopic).length + '/' + g.length, '已定題目'),
+          stat(g.filter((x) => x.dataN >= 1000).length + '/' + g.length, '資料 ≥ 1,000 筆'),
+          stat(g.filter((x) => stepsDone(x) === 7).length + '/' + g.length, '七步驟填完'),
+          stat(String(state.comments.length), '則留言')),
+        h('a', { class: 'linkbtn board-exit', href: '#' }, '離開投影')),
+      grid);
+    if (window.QRCode) new QRCode(boardQR, { text: siteUrl(), width: 256, height: 256 });
+    else boardQR.textContent = '（QR 載入失敗）';
+  }
+  function applyRoute() {
+    const on = isBoard();
+    document.body.classList.toggle('board-mode', on);
+    boardEl.hidden = !on;
+    if (on) renderBoard();
+  }
+  window.addEventListener('hashchange', applyRoute);
+
   /* ---------- boot ---------- */
   const modeEl = document.getElementById('mode');
   if (backend.mode === 'mock') { modeEl.textContent = '本機測試模式'; modeEl.className = 'mode-pill off'; notice('本機測試模式：資料只存在這台瀏覽器，別人看不到。', 'info'); }
   else backend.onConnection((ok) => { modeEl.textContent = ok ? '已連線' : '連線中斷，恢復後會自動同步'; modeEl.className = 'mode-pill ' + (ok ? 'live' : 'off'); });
 
-  renderWho();
+  renderWho(); applyRoute();
   let gotGroups = false;
   const timer = setTimeout(() => { if (!gotGroups) notice('資料還連不上，可能是網路問題。頁面會自動重試。'); }, 10000);
   backend.seedGroups(DEFAULT_GROUPS).catch(() => {});
@@ -364,11 +440,11 @@
     if (!gotGroups) { gotGroups = true; clearTimeout(timer); if (backend.mode !== 'mock') notice(''); }
     const k = allMembers().join('|');
     if (k !== memberKey) { memberKey = k; renderWho(); }
-    renderStats(); renderLedger(); renderGroups();
+    renderStats(); renderLedger(); renderGroups(); renderBoard();
   }, () => { clearTimeout(timer); notice('組別資料讀取失敗，請重新整理頁面。'); });
   backend.onComments((list) => {
     state.comments = list;
-    renderStats(); renderLedger(); renderAllThreads();
+    renderStats(); renderLedger(); renderAllThreads(); renderBoard();
   }, () => notice('留言讀取失敗，請重新整理頁面。'));
   setInterval(() => {
     for (const g of state.groups) { const r = cardEls.get(g.id); if (r) r.updated.textContent = updatedText(g); }
