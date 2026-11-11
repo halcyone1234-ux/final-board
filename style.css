@@ -290,3 +290,24 @@ body.board-mode .wrap { display: none; }
   .tile-qr .qr { width: 200px; height: 200px; }
 }
 .who select { width: auto; min-width: 12em; max-width: 100%; }
+
+
+/* ---------- 學生模式：分步驟 ---------- */
+#student-view { display: grid; gap: 12px; }
+.sv-empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 24px; text-align: center; color: var(--muted); }
+.sv-head .meta { display: grid; justify-items: end; gap: 4px; }
+.sv-nav { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; }
+.sv-nav button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 6px 12px 6px 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.sv-nav button i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.sv-nav button.done i { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.sv-nav button.done { color: var(--ink); }
+.sv-nav button.cur { border-color: var(--ink); color: var(--ink); background: var(--bg); font-weight: 600; }
+.sv-body { padding: 18px 20px 20px; }
+.sv-title h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 4px; }
+.sv-title .sub { margin: 0 0 6px; font-size: 14px; color: var(--muted); }
+.sv-form { display: grid; gap: 12px; }
+.sv-fin { display: grid; gap: 18px; }
+.sv-h2 { font-family: var(--font-display); font-size: 18px; margin: 0 0 8px; }
+.sv-summary { display: grid; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px; }
+.sv-thread { border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 640px) { .sv-body { padding: 14px; } }

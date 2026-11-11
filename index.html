@@ -15,7 +15,7 @@
   <header class="top">
     <div class="eyebrow">量化研究法（上）・1151 學期・期末資料分析專題</div>
     <h1>期末專題看板</h1>
-    <p class="sub">每組的題目、資料、研究方法和進度都在這一頁。各組請自己更新組卡，依照七個步驟逐步填寫；每組下面都能留言給建議，老師的留言會以橘色標示。</p>
+    <p class="sub" id="sub">選你的名字 → 挑一隻吉祥物 → 填六格表 → 依七個步驟填寫研究問題、文獻、設計、測量、資料、敘述統計與分析。老師會在下面留言，請隨時回來更新。</p>
   </header>
 
   <section class="rules" aria-label="期末報告規範">
@@ -29,6 +29,9 @@
   <div class="who" id="who">正在連線…</div>
   <div class="notice" id="notice" hidden></div>
 
+  <div id="student-view" hidden></div>
+
+  <div id="teacher-view">
   <div class="stats" id="stats">
     <div class="stat"><b>–</b><span>組數</span></div>
     <div class="stat"><b>–</b><span>已定研究題目</span></div>
@@ -51,6 +54,7 @@
     <div class="section-head"><h2>各組專題</h2><p>六格表沿用第 1 週的「地圖練習表」</p></div>
     <div class="cards" id="cards"><div class="loading">各組資料載入中…</div></div>
   </section>
+  </div>
 
   <footer class="foot">
     <span>國立中興大學 生物產業管理研究所・授課教師 王思永</span>

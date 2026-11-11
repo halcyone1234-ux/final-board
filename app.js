@@ -91,15 +91,15 @@
         h('button', { class: 'btn', type: 'button', onclick: () => setTeacher(false) }, '離開老師模式'));
       return;
     }
-    const sel = h('select', { id: 'me-select', 'aria-label': '選擇你的名字', onchange: (e) => { state.me = e.target.value; LS.set('fb.me', state.me); renderAllThreads(); } },
+    const sel = h('select', { id: 'me-select', 'aria-label': '選擇你的名字', onchange: (e) => { state.me = e.target.value; LS.set('fb.me', state.me); student.step = null; student.dirty = false; renderAllThreads(); renderStudent(true); } },
       h('option', { value: '' }, '請選擇你的名字'),
       allMembers().map((m) => h('option', { value: m, selected: m === state.me }, m)));
-    box.append(h('span', null, '我是：'), sel, h('span', { class: 'spacer' }), h('span', { class: 'updated' }, '留言和更新組卡時會顯示這個名字'));
+    box.append(h('span', null, '我是：'), sel, h('span', { class: 'spacer' }), h('span', { class: 'updated' }, '選好名字就會看到你們這一組'));
   }
   function setTeacher(on) {
     state.isTeacher = on; LS.set('fb.teacher', on);
-    state.editing.clear();
-    renderWho(); renderGroups();
+    state.editing.clear(); student.step = null;
+    renderWho(); renderGroups(); renderMain();
   }
 
   /* ---------- overlay: PIN & QR ---------- */
@@ -372,6 +372,166 @@
     renderAllThreads();
   }
 
+
+  /* ---------- 學生模式：只看自己的組，分步驟填寫 ---------- */
+  const SV = document.getElementById('student-view');
+  const TV = document.getElementById('teacher-view');
+  const WSTEPS = [
+    { key: 'icon', label: '吉祥物', done: (g) => !!g.icon },
+    { key: 'map', label: '六格表', done: (g) => filled(g.story) && filled(g.y) && filled(g.x) },
+    { key: 's0', label: '① 研究問題與假設', done: (g) => STEPS[0].done(g) },
+    { key: 's1', label: '② 文獻', done: (g) => STEPS[1].done(g) },
+    { key: 's2', label: '③ 研究設計', done: (g) => STEPS[2].done(g) },
+    { key: 's3', label: '④ 測量', done: (g) => STEPS[3].done(g) },
+    { key: 's4', label: '⑤ 抽樣與資料', done: (g) => STEPS[4].done(g) },
+    { key: 's5', label: '⑥ 敘述統計', done: (g) => STEPS[5].done(g) },
+    { key: 's6', label: '⑦ 分析與推論', done: (g) => STEPS[6].done(g) },
+    { key: 'fin', label: '進度與總覽', done: (g) => typeof g.stage === 'number' },
+  ];
+  const student = { step: null, dirty: false };
+  const myGroup = () => (state.me ? state.groups.find((g) => (g.members || []).includes(state.me)) : null);
+  const firstOpenStep = (g) => { const i = WSTEPS.findIndex((s) => !s.done(g)); return i < 0 ? WSTEPS.length - 1 : i; };
+  function stepKey(gid) { return 'fb.step.' + gid; }
+
+  function renderMain() {
+    const teacher = state.isTeacher;
+    TV.hidden = !teacher; SV.hidden = teacher;
+    document.getElementById('sub').textContent = teacher
+      ? '老師模式：每組的題目、資料、研究方法和進度都在這一頁；可以改組名與成員、留言給各組、開投影模式。'
+      : '選你的名字 → 挑一隻吉祥物 → 填六格表 → 依七個步驟填寫研究問題、文獻、設計、測量、資料、敘述統計與分析。老師會在下面留言，請隨時回來更新。';
+    if (!teacher) renderStudent(true);
+  }
+
+  /* full＝重建整個畫面（換人、換步驟、存檔後）；否則只更新表頭與總覽，不動正在填的表單 */
+  function renderStudent(full) {
+    if (state.isTeacher) return;
+    const g = myGroup();
+    if (!state.me) { SV.replaceChildren(h('div', { class: 'sv-empty' }, '請先在上方選擇你的名字，就會看到你們這一組。')); student.step = null; return; }
+    if (!g) { SV.replaceChildren(h('div', { class: 'sv-empty' }, '名單裡找不到「' + state.me + '」所屬的組別，請告訴老師。')); student.step = null; return; }
+    if (student.step === null) { const saved = LS.get(stepKey(g.id), null); student.step = typeof saved === 'number' ? saved : firstOpenStep(g); }
+    if (!full && SV.querySelector('.sv-head')) { refreshStudentHead(g); if (WSTEPS[student.step].key === 'fin') refreshStudentSummary(g); return; }
+    SV.replaceChildren(studentHead(g), studentNav(g), h('div', { class: 'card sv-body', id: 'sv-body' }, studentStep(g, student.step)));
+  }
+  function studentHead(g) {
+    const head = h('div', { class: 'card sv-head' });
+    head.append(h('div', { class: 'card-head' }, h('div', { class: 'gcell' }, h('span', { class: 'sv-icon' }), h('div', null, h('h3', null, g.name), h('div', { class: 'members' }, (g.members || []).join('、')))),
+      h('div', { class: 'meta' }, h('div', { class: 'sv-prog' }), h('div', { class: 'updated' }))));
+    requestAnimationFrame(() => refreshStudentHead(currentGroup(g.id) || g));
+    return head;
+  }
+  function refreshStudentHead(g) {
+    const head = SV.querySelector('.sv-head'); if (!head) return;
+    head.querySelector('h3').textContent = g.name;
+    head.querySelector('.sv-icon').replaceChildren(badge(g, 'lg'));
+    head.querySelector('.members').textContent = (g.members || []).join('、');
+    head.querySelector('.updated').textContent = updatedText(g);
+    const done = WSTEPS.filter((s) => s.done(g)).length;
+    head.querySelector('.sv-prog').replaceChildren(h('div', { class: 'prog7', role: 'img', 'aria-label': '已完成 ' + done + ' / ' + WSTEPS.length + ' 步' }, WSTEPS.map((s) => h('i', { class: s.done(g) ? 'on' : '', title: s.label }))), h('span', { class: 'num', style: 'font-size:12px' }, done + ' / ' + WSTEPS.length + ' 步'));
+    SV.querySelectorAll('.sv-nav button').forEach((b, i) => { b.classList.toggle('done', WSTEPS[i].done(g)); b.classList.toggle('cur', i === student.step); });
+  }
+  function studentNav(g) {
+    return h('div', { class: 'sv-nav', role: 'tablist' }, WSTEPS.map((s, i) => h('button', { type: 'button', class: (s.done(g) ? 'done' : '') + (i === student.step ? ' cur' : ''), onclick: () => gotoStep(i) },
+      h('i', null, String(i + 1)), s.label)));
+  }
+  function gotoStep(i) {
+    const g = myGroup(); if (!g) return;
+    if (student.dirty && !confirm('這一步還沒儲存，確定要離開？')) return;
+    student.dirty = false; student.step = Math.max(0, Math.min(WSTEPS.length - 1, i)); LS.set(stepKey(g.id), student.step);
+    renderStudent(true); window.scrollTo({ top: SV.offsetTop - 12, behavior: 'smooth' });
+  }
+
+  /* 各步驟表單：只存這一步的欄位，存完自動跳下一步 */
+  function studentStep(g, i) {
+    const key = WSTEPS[i].key;
+    const id = (k) => 's-' + g.id + '-' + k;
+    const txt = (k, label, val, ph) => h('label', { class: 'f', for: id(k) }, label, h('input', { type: 'text', id: id(k), value: val || '', placeholder: ph || '' }));
+    const area = (k, label, val, ph, rows) => h('label', { class: 'f', for: id(k) }, label, h('textarea', { id: id(k), placeholder: ph || '', rows: rows || 4 }, val || ''));
+    const checks = (k, legend, opts, sel) => h('fieldset', null, h('legend', null, legend),
+      h('div', { class: 'checks' }, opts.map((o, j) => h('label', null, h('input', { type: 'checkbox', id: id(k) + '-' + j, value: o, checked: (sel || []).includes(o) }), o))));
+    const title = (t, hint) => h('div', { class: 'sv-title' }, h('h2', null, t), hint ? h('p', { class: 'sub' }, hint) : null);
+    const msg = h('span', { class: 'form-msg', role: 'status' });
+    const isLast = i === WSTEPS.length - 1;
+    const actions = h('div', { class: 'form-actions' }, msg,
+      i > 0 ? h('button', { type: 'button', class: 'btn', onclick: () => gotoStep(i - 1) }, '← 上一步') : null,
+      h('button', { type: 'submit', class: 'btn primary' }, isLast ? '儲存' : '儲存，下一步 →'));
+    let body; let collect;
+    if (key === 'icon') {
+      body = [title('挑一隻吉祥物', '每組一隻，先選先贏。之後想換也可以回來這一步改。'),
+        h('div', { class: 'icon-pick' }, PX.list.map((ic) => { const other = takenBy(ic.id, g.id);
+          return h('label', { class: 'icon-opt' + (other ? ' taken' : ''), title: other ? '已被' + other.name + '選走' : ic.name },
+            h('input', { type: 'radio', name: id('icon'), value: ic.id, checked: g.icon === ic.id, disabled: !!other }),
+            h('span', { class: 'badge md' }, PX.svg(ic.id)), h('span', { class: 'icon-name' }, ic.name), other ? h('span', { class: 'icon-taken' }, other.name) : null); }))];
+      collect = (form) => { const p = form.querySelector('input[name="' + CSS.escape(id('icon')) + '"]:checked'); if (!p) return '請先挑一隻。';
+        const other = takenBy(p.value, g.id); if (other) return '「' + PX.byId(p.value).name + '」剛被' + other.name + '選走了，請換一隻。'; return { icon: p.value }; };
+    } else if (key === 'map') {
+      body = [title('起手式：六格表', '沿用第 1 週的「地圖練習表」。一句話把故事講清楚，再把 Y、X、Z／M／W 填上。'),
+        txt('story', '故事（一句話）', g.story, '我想講的故事'),
+        h('div', { class: 'row' }, txt('y', 'Y（結果）', g.y), txt('x', 'X（原因）', g.x)),
+        h('div', { class: 'row' }, txt('zmw', 'Z／M／W（干擾、中介、調節）', g.zmw),
+          h('label', { class: 'f', for: id('struct') }, '資料結構', h('select', { id: id('struct') }, h('option', { value: '' }, '—'), STRUCTS.map((s) => h('option', { value: s, selected: g.dataStructure === s }, s))))),
+        checks('faces', '四張臉：可能有哪些內生性問題', FACES, g.faces)];
+      collect = (form, v, el, picked) => ({ story: v('story'), y: v('y'), x: v('x'), zmw: v('zmw'), dataStructure: el('struct').value, faces: picked('faces') });
+    } else if (key === 's0') {
+      body = [title('① 研究問題與假設', '題目一句話；研究問題是「你想回答什麼」，假設是「你預期答案是什麼」。'),
+        txt('topic', '研究題目', g.topic, '例：參加產銷班能不能提高農民收入？'),
+        area('question', '研究問題', g.question), area('hypothesis', '研究假設', g.hypothesis, 'H₁：…')];
+      collect = (form, v) => ({ topic: v('topic'), question: v('question'), hypothesis: v('hypothesis') });
+    } else if (key === 's1') {
+      body = [title('② 文獻', '一行一篇，建議 5–8 篇：作者（年份）。篇名。期刊。'), area('literature', '文獻', g.literature, '作者（年份）。篇名。期刊。', 8)];
+      collect = (form, v) => ({ literature: v('literature') });
+    } else if (key === 's2') {
+      body = [title('③ 研究設計', '探索性／描述性／因果性？比較誰和誰？'), area('design', '研究設計', g.design, '', 6)];
+      collect = (form, v) => ({ design: v('design') });
+    } else if (key === 's3') {
+      body = [title('④ 測量（信度・效度）', '關鍵變數怎麼量、尺度為何；信度與效度怎麼確認。'), area('measurement', '測量', g.measurement, '', 6)];
+      collect = (form, v) => ({ measurement: v('measurement') });
+    } else if (key === 's4') {
+      body = [title('⑤ 抽樣與資料蒐集', '資料不少於 1,000 筆。寫清楚資料從哪來、原始資料怎麼抽樣、你們怎麼篩選與清理。'),
+        h('div', { class: 'row3' }, txt('dataName', '資料名稱／來源', g.dataName, '例：SRDA 台灣社會變遷基本調查'),
+          h('label', { class: 'f', for: id('dataUrl') }, '資料連結', h('input', { type: 'url', id: id('dataUrl'), value: g.dataUrl || '', placeholder: 'https://…' })),
+          h('label', { class: 'f', for: id('dataN') }, '筆數（n）', h('input', { type: 'text', inputmode: 'numeric', id: id('dataN'), value: typeof g.dataN === 'number' ? String(g.dataN) : '', placeholder: '≥ 1000' }))),
+        area('sampling', '抽樣與資料蒐集方式', g.sampling, '', 5)];
+      collect = (form, v) => { const nRaw = v('dataN').replace(/[,\s]/g, ''); const nVal = nRaw === '' ? null : Number(nRaw);
+        if (nRaw !== '' && !(Number.isFinite(nVal) && nVal >= 0)) return '筆數請填數字，例如 12000。';
+        return { dataName: v('dataName'), dataUrl: v('dataUrl'), dataN: nVal, sampling: v('sampling') }; };
+    } else if (key === 's5') {
+      body = [title('⑥ 敘述統計與視覺化', '要報哪些 M、SD、次數；畫哪些圖。'), area('descriptive', '敘述統計與視覺化', g.descriptive, '', 6)];
+      collect = (form, v) => ({ descriptive: v('descriptive') });
+    } else if (key === 's6') {
+      body = [title('⑦ 分析與推論', '勾選用到的方法，並說明要檢定什麼、怎麼做。'), checks('methods', '使用的方法', METHODS, g.methods), area('methodNote', '方法說明', g.methodNote, '', 5)];
+      collect = (form, v, el, picked) => ({ methods: picked('methods'), methodNote: v('methodNote') });
+    } else {
+      body = [title('進度與總覽', '更新目前進度；下面是你們這一組目前填好的內容，以及老師和同學的留言。'),
+        h('label', { class: 'f', for: id('stage') }, '目前進度', h('select', { id: id('stage') }, h('option', { value: '' }, '尚未開始'), STAGES.map((s, j) => h('option', { value: String(j), selected: g.stage === j }, '倒數 ' + (6 - j) + ' 週：' + s))))];
+      collect = (form, v, el) => { const sv = el('stage').value; return { stage: sv === '' ? null : Number(sv) }; };
+    }
+    const form = h('form', { class: 'form sv-form', oninput: () => { student.dirty = true; }, onsubmit: async (e) => {
+      e.preventDefault();
+      const el = (k) => form.querySelector('#' + CSS.escape(id(k)));
+      const v = (k) => el(k).value.trim();
+      const picked = (k) => [...form.querySelectorAll('input[id^="' + CSS.escape(id(k)) + '-"]:checked')].map((x) => x.value);
+      const r = collect(form, v, el, picked);
+      if (typeof r === 'string') { msg.textContent = r; return; }
+      const patch = Object.assign(r, { updatedAt: Date.now(), updatedBy: myName() });
+      const btn = form.querySelector('button[type=submit]'); btn.disabled = true; msg.textContent = '儲存中…';
+      try { await backend.updateGroup(g.id, patch); student.dirty = false; msg.textContent = '已儲存 ✓';
+        if (isLast) { renderStudent(true); } else gotoStep(i + 1);
+      } catch (err) { btn.disabled = false; msg.textContent = '儲存失敗，請確認網路後再試一次。'; }
+    } }, body, actions);
+    if (key !== 'fin') return form;
+    const summary = h('div', { class: 'sv-summary' });
+    const thread = h('div', { class: 'thread sv-thread' });
+    const wrap = h('div', { class: 'sv-fin' }, form, summary, thread);
+    requestAnimationFrame(() => refreshStudentSummary(currentGroup(g.id) || g));
+    return wrap;
+  }
+  function refreshStudentSummary(g) {
+    const sum = SV.querySelector('.sv-summary'); const th = SV.querySelector('.sv-thread'); if (!sum || !th) return;
+    sum.replaceChildren(h('h2', { class: 'sv-h2' }, '你們這一組目前的內容'), ...viewBody(g));
+    const r = ensureCard(g); updateCard(g); renderThread(g.id);
+    th.replaceChildren(h('h4', null, '老師與同學的留言 ', r.count), r.list, r.composer);
+  }
+
   /* ---------- 投影模式（#board）：一個畫面看全部組別 ---------- */
   const boardEl = document.getElementById('board');
   const isBoard = () => location.hash === '#board';
@@ -431,7 +591,7 @@
   if (backend.mode === 'mock') { modeEl.textContent = '本機測試模式'; modeEl.className = 'mode-pill off'; notice('本機測試模式：資料只存在這台瀏覽器，別人看不到。', 'info'); }
   else backend.onConnection((ok) => { modeEl.textContent = ok ? '已連線' : '連線中斷，恢復後會自動同步'; modeEl.className = 'mode-pill ' + (ok ? 'live' : 'off'); });
 
-  renderWho(); applyRoute();
+  renderWho(); renderMain(); applyRoute();
   let gotGroups = false;
   const timer = setTimeout(() => { if (!gotGroups) notice('資料還連不上，可能是網路問題。頁面會自動重試。'); }, 10000);
   backend.seedGroups(DEFAULT_GROUPS).catch(() => {});
@@ -441,11 +601,11 @@
     if (!gotGroups) { gotGroups = true; clearTimeout(timer); if (backend.mode !== 'mock') notice(''); }
     const k = allMembers().join('|');
     if (k !== memberKey) { memberKey = k; renderWho(); }
-    renderStats(); renderLedger(); renderGroups(); renderBoard();
+    renderStats(); renderLedger(); renderGroups(); renderBoard(); renderStudent(false);
   }, () => { clearTimeout(timer); notice('組別資料讀取失敗，請重新整理頁面。'); });
   backend.onComments((list) => {
     state.comments = list;
-    renderStats(); renderLedger(); renderAllThreads(); renderBoard();
+    renderStats(); renderLedger(); renderAllThreads(); renderBoard(); renderStudent(false);
   }, () => notice('留言讀取失敗，請重新整理頁面。'));
   setInterval(() => {
     for (const g of state.groups) { const r = cardEls.get(g.id); if (r) r.updated.textContent = updatedText(g); }
