@@ -418,6 +418,7 @@
     else boardQR.textContent = '（QR 載入失敗）';
   }
   function applyRoute() {
+    if (location.hash === '#admin') { history.replaceState(null, '', location.pathname + location.search); if (!state.isTeacher) askPin(); }
     const on = isBoard();
     document.body.classList.toggle('board-mode', on);
     boardEl.hidden = !on;
